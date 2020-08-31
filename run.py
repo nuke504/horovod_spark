@@ -45,7 +45,7 @@ if __name__ == '__main__':
     
     args = get_options()
 
-    # Create Spark session for data preparation.
+    # 1. Create Spark session for data preparation.
     conf = SparkConf().setAppName('data_prep').set('spark.sql.shuffle.partitions', '16')
     if args.processing_master:
         conf.setMaster(args.processing_master)
@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     model = get_model()
 
-    # Horovod: add Distributed Optimizer.
+    # 2. Horovod: add Distributed Optimizer.
     opt = tf.keras.optimizers.Adam(lr=args.learning_rate, epsilon=1e-3)
     opt = hvd.DistributedOptimizer(opt)
     model.compile(opt, loss = tf.keras.losses.MeanSquaredError(), metrics=['mse'])
@@ -84,7 +84,7 @@ if __name__ == '__main__':
     print(f'Written checkpoint to {args.local_checkpoint_file}')
     spark.stop()
 
-
+    # 3. Prediction
     conf = SparkConf().setAppName('prediction') \
         .setExecutorEnv('LD_LIBRARY_PATH', os.environ.get('LD_LIBRARY_PATH')) \
         .setExecutorEnv('PATH', os.environ.get('PATH'))
@@ -95,6 +95,7 @@ if __name__ == '__main__':
     pred_df = pred_df.orderBy('avg_predicted_rating', ascending=False).toPandas()
     pred_df.to_csv(os.path.join(os.getcwd(),args.local_prediction_csv))
     # pred_df.write.format('csv').option('header',True).mode('overwrite').option('sep',',').save(os.path.join(os.getcwd(),args.local_prediction_csv))
+    spark.stop()
 
 
     
